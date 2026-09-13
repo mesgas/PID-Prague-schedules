@@ -27,9 +27,7 @@ This repository has its own commit history, independent of the original project.
 
 ### Using [HACS](https://hacs.xyz/)
 
-<a href="https://my.home-assistant.io/redirect/hacs_repository/?repository=mesgas/PID-Prague-schedules&category=integration">
-  <img src="https://img.shields.io/badge/Open%20in-HACS-41BDF5?style=for-the-badge&logo=homeassistant" alt="Open in HACS" />
-</a>
+<a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=mesgas&repository=https%3A%2F%2Fgithub.com%2Fmesgas%2FPID-Prague-schedules&category=Integration" target="_blank" rel="noreferrer noopener"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance and open a repository inside the Home Assistant Community Store." /></a>
 
 Add this repository to HACS as a custom repository (category: Integration), then install **PID Departure Boards (Dev)** from there.
 
