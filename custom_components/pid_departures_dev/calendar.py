@@ -46,12 +46,16 @@ class DeparturesCalendarEntity(BaseEntity, CalendarEntity):
     @override
     def event(self) -> CalendarEvent | None:
         """Return the current or next upcoming event."""
+        if not self.coordinator.departures:
+            return None
         return self._create_event(self.coordinator.departures[0])
 
     @property
     @override
     def icon(self) -> str:
         """Return entity icon based on the type of route."""
+        if not self.coordinator.departures:
+            return ICON_STOP
         if self.state == STATE_ON:
             route_type = self.coordinator.departures[0].route_type
             return ROUTE_TYPE_ICON.get(route_type, ROUTE_TYPE_ICON[RouteType.BUS])
@@ -63,6 +67,11 @@ class DeparturesCalendarEntity(BaseEntity, CalendarEntity):
     def extra_state_attributes(self) -> Mapping[str, Any]:
         # NOTE: When CONF_LATITUDE and CONF_LONGITUDE is included, HASS shows
         #  the entity on the map.
+        if not self.coordinator.departures:
+            return {
+                CONF_LATITUDE: self.coordinator.latitude,
+                CONF_LONGITUDE: self.coordinator.longitude,
+            }
         return {
             **self.coordinator.departures[0].as_dict(),
             CONF_LATITUDE: self.coordinator.latitude,

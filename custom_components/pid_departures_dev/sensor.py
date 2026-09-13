@@ -57,15 +57,22 @@ class RouteNameSensor(BaseEntity, SensorEntity):
     @property
     def native_value(self) -> str:
         """ Returns name of the route as state."""
-        return self.coordinator.departures[self._departure].route_name or "?"
+        departure = self._safe_departure()
+        return departure.route_name if departure else "?"
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any]:
         """ Returns dictionary of additional state attributes"""
         # NOTE: When CONF_LATITUDE and CONF_LONGITUDE is included, HASS shows
         #  the entity on the map.
+        departure = self._safe_departure()
+        if departure is None:
+            return {
+                CONF_LATITUDE: self.coordinator.latitude,
+                CONF_LONGITUDE: self.coordinator.longitude,
+            }
         return {
-            **self.coordinator.departures[self._departure].as_dict(),
+            **departure.as_dict(),
             CONF_LATITUDE: self.coordinator.latitude,
             CONF_LONGITUDE: self.coordinator.longitude,
         }
@@ -73,8 +80,18 @@ class RouteNameSensor(BaseEntity, SensorEntity):
     @property
     def icon(self) -> str:
         """Returns entity icon based on the type of route"""
-        route_type = self.coordinator.departures[self._departure].route_type
+        departure = self._safe_departure()
+        if departure is None:
+            return ROUTE_TYPE_ICON[RouteType.BUS]
+        route_type = departure.route_type
         return ROUTE_TYPE_ICON.get(route_type, ROUTE_TYPE_ICON[RouteType.BUS])
+
+    def _safe_departure(self):
+        """Return a departure if present, else None."""
+        departures = self.coordinator.departures
+        if not departures or self._departure >= len(departures):
+            return None
+        return departures[self._departure]
 
 
 class DepartureTimeSensor(BaseEntity, SensorEntity):
@@ -91,13 +108,24 @@ class DepartureTimeSensor(BaseEntity, SensorEntity):
 
     @property
     def native_value(self) -> datetime | None:
-        return self.coordinator.departures[self._departure_num].departure_time_est
+        departure = self._safe_departure()
+        return departure.departure_time_est if departure else None
 
     @property
     def icon(self) -> str:
         """Returns entity icon based on the type of route"""
-        route_type = self.coordinator.departures[self._departure_num].route_type
+        departure = self._safe_departure()
+        if departure is None:
+            return ROUTE_TYPE_ICON[RouteType.BUS]
+        route_type = departure.route_type
         return ROUTE_TYPE_ICON.get(route_type, ROUTE_TYPE_ICON[RouteType.BUS])
+
+    def _safe_departure(self):
+        """Return a departure if present, else None."""
+        departures = self.coordinator.departures
+        if not departures or self._departure_num >= len(departures):
+            return None
+        return departures[self._departure_num]
 
 
 class StopSensor(BaseEntity, SensorEntity):
