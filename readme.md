@@ -19,9 +19,9 @@ This is an independent fork of [dvejsada/PID_integration](https://github.com/dve
 
 This repository has its own commit history, independent of the original project.
 
-<!-- TODO: screenshots of this fork's actual UI (departure board device page, the new
-     PID Departures Card and PID Alerts Card) go here, replacing the ones from the
-     original project that used to be in this spot. -->
+| Departures card (3 merged stops) | Device page |
+|:---:|:---:|
+| ![PID Departures Card showing three merged stops](assets/departures-card.png) | ![Device page with its sensors](assets/device-page.png) |
 
 ## Installation
 
