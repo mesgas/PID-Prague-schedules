@@ -1,11 +1,13 @@
 {
   "domain": "pid_departures_dev",
   "name": "PID Departure Boards (Dev)",
-  "codeowners": [],
+  "codeowners": ["@mesgas"],
   "config_flow": true,
   "dependencies": ["frontend", "http"],
+  "documentation": "https://github.com/mesgas/PID-Prague-schedules",
   "integration_type": "device",
   "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/mesgas/PID-Prague-schedules/issues",
   "requirements": [],
   "version": "1.0.0"
 }

@@ -5,9 +5,13 @@ import logging
 
 from homeassistant.core import CoreState, Event, HomeAssistant
 from homeassistant.core import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.helpers import config_validation as cv
 
+from .const import DOMAIN
 from .coordinator import PIDConfigEntry, PIDDepartureUpdateCoordinator
 from .frontend import JSModuleRegistration
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 _LOGGER = logging.getLogger(__name__)
 
