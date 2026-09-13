@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" alt="PID Integrated Transport - Home Assistant integration" width="260"></p>
+
 # PID Departure Board integration
 
 This custom component provides a departures board information for the selected stops of the Prague Integrated Transport [PID](http://www.pid.cz/). 
@@ -17,9 +19,9 @@ This is an independent fork of [dvejsada/PID_integration](https://github.com/dve
 
 This repository has its own commit history, independent of the original project.
 
-| Device page                                     |                  Sensor attributes                   |
-|:------------------------------------------------|:----------------------------------------------------:|
-| ![device page](assets/device.en.png "Device page") | ![sensor attributes](assets/sensor.en.png "Sensor attributes") |
+<!-- TODO: screenshots of this fork's actual UI (departure board device page, the new
+     PID Departures Card and PID Alerts Card) go here, replacing the ones from the
+     original project that used to be in this spot. -->
 
 ## Installation
 
