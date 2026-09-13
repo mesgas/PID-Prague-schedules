@@ -1,0 +1,141 @@
+"""Platform for calendar integration."""
+from __future__ import annotations
+
+from collections.abc import Mapping
+from datetime import datetime, timedelta
+import logging
+from typing import Any
+from typing_extensions import override
+
+from homeassistant.components.calendar import CalendarEntity, CalendarEvent
+from homeassistant.core import HomeAssistant
+from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, STATE_ON
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt
+
+from .const import CAL_EVENT_MIN_DURATION_SEC, ICON_STOP, ROUTE_TYPE_ICON, RouteType
+from .coordinator import PIDConfigEntry, PIDDepartureUpdateCoordinator
+from .api import PIDDepartureBoardAPI
+from .entity import BaseEntity
+from .hub import DepartureData
+
+_LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: PIDConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    coordinator = config_entry.runtime_data
+    async_add_entities([
+        DeparturesCalendarEntity(coordinator, events_count=coordinator.cal_events_count),
+    ])
+
+
+class DeparturesCalendarEntity(BaseEntity, CalendarEntity):
+
+    _attr_translation_key = "departures"
+
+    def __init__(self, coordinator: PIDDepartureUpdateCoordinator, events_count: int) -> None:
+        super().__init__(coordinator)
+        self._events_count = events_count
+        self._event: CalendarEvent | None = None
+
+    @property
+    @override
+    def event(self) -> CalendarEvent | None:
+        """Return the current or next upcoming event."""
+        return self._create_event(self.coordinator.departures[0])
+
+    @property
+    @override
+    def icon(self) -> str:
+        """Return entity icon based on the type of route."""
+        if self.state == STATE_ON:
+            route_type = self.coordinator.departures[0].route_type
+            return ROUTE_TYPE_ICON.get(route_type, ROUTE_TYPE_ICON[RouteType.BUS])
+        else:
+            return ICON_STOP
+
+    @property
+    @override
+    def extra_state_attributes(self) -> Mapping[str, Any]:
+        # NOTE: When CONF_LATITUDE and CONF_LONGITUDE is included, HASS shows
+        #  the entity on the map.
+        return {
+            **self.coordinator.departures[0].as_dict(),
+            CONF_LATITUDE: self.coordinator.latitude,
+            CONF_LONGITUDE: self.coordinator.longitude,
+        }
+
+    @override
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
+        if self._events_count == 0:
+            return []
+        time_before = dt.now() - start_date
+        time_after = end_date - dt.now()
+
+        if (not timedelta_in_range(time_before, *PIDDepartureBoardAPI.TIME_BEFORE_RANGE) and
+            not timedelta_in_range(time_after, *PIDDepartureBoardAPI.TIME_AFTER_RANGE)):
+            _LOGGER.debug(f"async_get_events: start_date={start_date} end_date={end_date} is out of range")
+            return []
+
+        departures = await self.coordinator.async_get_departures(
+            limit=self._events_count,
+            time_before=timedelta_clamp(time_before, *PIDDepartureBoardAPI.TIME_BEFORE_RANGE),
+            time_after=timedelta_clamp(time_after, *PIDDepartureBoardAPI.TIME_AFTER_RANGE))
+
+        events = (self._create_event(dep) for dep in departures)
+        return [event for event in events if event]
+
+    def _create_event(self, departure: DepartureData) -> CalendarEvent | None:
+        start = departure.arrival_time_est
+        end = departure.departure_time_est
+
+        if not start and not end:
+            _LOGGER.error('Invalid data, both "arrival_timestamp" and "departure_timestamp" is null')
+            return None
+        elif start:
+            # departure_timestamp is null on last stops.
+            if not end or (end - start).seconds < CAL_EVENT_MIN_DURATION_SEC:
+                end = start + timedelta(seconds=CAL_EVENT_MIN_DURATION_SEC)
+        elif end:
+            # arrival_timestamp is null on first stops.
+            start = end - timedelta(seconds=CAL_EVENT_MIN_DURATION_SEC)
+
+        route_type = self._translate(f"state_attributes.route_type.state.{departure.route_type}")
+        short_name = departure.route_name or "?"
+
+        return CalendarEvent(
+            start=start,
+            end=end,
+            summary=f"{route_type} {short_name}",
+            location=self.coordinator.board_name,
+            description=f"Trip to {departure.trip_headsign}",
+        )
+
+    def _translate(self, key_path: str) -> str:
+        """Translate the given key path."""
+        key = (f"component.{self.platform.platform_name}.entity.{self.platform.domain}" +
+               f".{self.translation_key}.{key_path}")
+
+        if hasattr(self.platform, "platform_data"):
+            return self.platform.platform_data.platform_translations.get(key, key_path)
+        else:
+            return self.platform.platform_translations.get(key, key_path)
+
+
+def timedelta_clamp(delta: timedelta, min: timedelta, max: timedelta) -> timedelta:
+    if delta < min:
+        return min
+    elif delta > max:
+        return max
+    else:
+        return delta
+
+
+def timedelta_in_range(delta: timedelta, min: timedelta, max: timedelta) -> bool:
+    return min <= delta <= max

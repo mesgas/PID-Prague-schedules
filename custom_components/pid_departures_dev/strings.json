@@ -1,0 +1,354 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add departure board",
+        "description": "Enter your Golemio API key. See documentation for further info.",
+        "data": {
+          "api_key": "Enter API key"
+        },
+        "data_description": {
+          "api_key": "API key for Golemio API"
+        }
+      },
+      "stop": {
+        "title": "Select stop",
+        "description": "Choose the stop and basic display options for this departure board.",
+        "data": {
+          "stop_selector": "Select the stop",
+          "departures_number": "Number of departures to display",
+          "cal_events_number": "Number of calendar events for departures to be created",
+          "walking_offset": "Walking time offset (minutes)",
+          "track_vehicle": "Track live position of the next vehicle"
+        },
+        "data_description": {
+          "stop_selector": "Hint - type to search",
+          "walking_offset": "Offset to compensate for walking distance to stop (positive = show future departures, negative = show past departures)",
+          "track_vehicle": "Adds a device tracker showing the GPS position of the next vehicle due at this stop"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Update API key",
+        "description": "The API key for the Golemio API is no longer valid. Enter a new one.",
+        "data": {
+          "api_key": "Enter API key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unknown API connection error",
+      "stop_not_found": "Stop with provided awsIDs was not found.",
+      "no_departures_selected": "Number of departures cannot be 0.",
+      "wrong_api_key": "Connection was not authorized. Wrong or no API key provided.",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This departure board is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Departure board options",
+        "description": "Change display options for this departure board.",
+        "data": {
+          "departures_number": "Number of departures to display",
+          "cal_events_number": "Number of calendar events for departures to be created",
+          "walking_offset": "Walking time offset (minutes)",
+          "track_vehicle": "Track live position of the next vehicle"
+        },
+        "data_description": {
+          "walking_offset": "Offset to compensate for walking distance to stop (positive = show future departures, negative = show past departures)",
+          "track_vehicle": "Adds a device tracker showing the GPS position of the next vehicle due at this stop"
+        }
+      },
+      "advanced": {
+        "title": "Advanced API options",
+        "description": "Fine-tune how the Golemio departure board query behaves. Leave at \"default\" unless you have a specific need.",
+        "data": {
+          "mode": "Mode",
+          "order": "Order",
+          "filter": "Filter",
+          "skip": "Skip",
+          "air_condition": "Show air condition info",
+          "append_headsigns_limit": "Append headsigns limit",
+          "translate_agent": "Translate service announcements using",
+          "translate_language": "Translate into language"
+        },
+        "data_description": {
+          "mode": "How to handle end stops: departures, arrivals, or mixed",
+          "order": "Order by predicted time with delay, or by timetable time",
+          "filter": "Reduce repeated departures of the same route/heading",
+          "skip": "Exclude canceled trips and/or trips already at the stop",
+          "air_condition": "Uncheck to hide air-condition info (e.g. outside of summer); leave unset to use the API default",
+          "append_headsigns_limit": "Enriches the headsign with the next route/headsign near a route switch; leave empty to disable",
+          "translate_agent": "Optional: pick a conversation agent (e.g. Gemini) to translate Czech service announcements. Leave unset to disable translation.",
+          "translate_language": "Language to translate into, e.g. \"Italian\". Leave empty to use Home Assistant's own configured language."
+        }
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "next_vehicle": {
+        "name": "Next vehicle position",
+        "state_attributes": {
+          "bearing": {
+            "name": "Bearing"
+          },
+          "speed": {
+            "name": "Speed"
+          },
+          "delay_sec": {
+            "name": "Delay (seconds)"
+          },
+          "is_tracking": {
+            "name": "Is tracking"
+          },
+          "is_canceled": {
+            "name": "Trip is cancelled"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "infotext": {
+        "name": "Infotext",
+        "state_attributes": {
+          "infotexts": {
+            "name": "All active info texts"
+          },
+          "count": {
+            "name": "Number of active info texts"
+          }
+        }
+      },
+      "wheelchair_accessible": {
+        "name": "Wheelchair accessible",
+        "state": {
+          "on": "Yes",
+          "off": "No"
+        }
+      }
+    },
+    "calendar": {
+      "departures": {
+        "name": "Vehicle at stop",
+        "state": {
+          "on": "Yes",
+          "off": "No"
+        },
+        "state_attributes": {
+          "arrival_time_est": {
+            "name": "Arrival time (incl. delay)"
+          },
+          "arrival_time_sched": {
+            "name": "Arrival time (scheduled)"
+          },
+          "departure_time_est": {
+            "name": "Departure time (incl. delay)"
+          },
+          "departure_time_sched": {
+            "name": "Departure time (scheduled)"
+          },
+          "departure_in_min": {
+            "name": "Departure time (in minutes)"
+          },
+          "is_delay_avail": {
+            "name": "Delay is available"
+          },
+          "delay_min": {
+            "name": "Delay (minutes)"
+          },
+          "delay_sec": {
+            "name": "Delay (seconds)"
+          },
+          "route_name": {
+            "name": "Route name"
+          },
+          "route_type": {
+            "name": "Route type",
+            "state": {
+              "tram": "Tram",
+              "metro": "Metro",
+              "train": "Train",
+              "bus": "Bus",
+              "ferry": "Ferry",
+              "funicular": "Funicular",
+              "trolleybus": "Trolleybus"
+            }
+          },
+          "train_number": {
+            "name": "Train number"
+          },
+          "trip_id": {
+            "name": "GTFS trip ID"
+          },
+          "trip_direction": {
+            "name": "Next direction"
+          },
+          "trip_headsign": {
+            "name": "Trip headsign"
+          },
+          "is_air_conditioned": {
+            "name": "Vehicle has air conditioning"
+          },
+          "is_at_stop": {
+            "name": "Vehicle is physically at stop"
+          },
+          "is_canceled": {
+            "name": "Trip is cancelled"
+          },
+          "is_night": {
+            "name": "Night route"
+          },
+          "is_regional": {
+            "name": "Suburban or regional route"
+          },
+          "is_substitute": {
+            "name": "Substitute service"
+          },
+          "is_wheelchair_accessible": {
+            "name": "Vehicle is wheelchair accessible"
+          },
+          "last_stop_id": {
+            "name": "Last reported stop (GTFS ID)"
+          },
+          "last_stop_name": {
+            "name": "Last reported stop (name)"
+          },
+          "stop_id": {
+            "name": "Stop GTFS ID"
+          },
+          "stop_platform": {
+            "name": "Stop platform code"
+          },
+          "latitude": {
+            "name": "Stop location (latitude)"
+          },
+          "longitude": {
+            "name": "Stop location (longitude)"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "departure_time": {
+        "name": "Next departure time ({num})"
+      },
+      "latitude": {
+        "name": "Stop location (latitude)"
+      },
+      "longitude": {
+        "name": "Stop location (longitude)"
+      },
+      "platform": {
+        "name": "Platform"
+      },
+      "route_name": {
+        "name": "Next route name ({num})",
+        "state_attributes": {
+          "arrival_time_est": {
+            "name": "Arrival time (incl. delay)"
+          },
+          "arrival_time_sched": {
+            "name": "Arrival time (scheduled)"
+          },
+          "departure_time_est": {
+            "name": "Departure time (incl. delay)"
+          },
+          "departure_time_sched": {
+            "name": "Departure time (scheduled)"
+          },
+          "is_delay_avail": {
+            "name": "Delay is available"
+          },
+          "delay_sec": {
+            "name": "Delay (seconds)"
+          },
+          "route_name": {
+            "name": "Route name"
+          },
+          "route_type": {
+            "name": "Route type",
+            "state": {
+              "tram": "Tram",
+              "metro": "Metro",
+              "train": "Train",
+              "bus": "Bus",
+              "ferry": "Ferry",
+              "funicular": "Funicular",
+              "trolleybus": "Trolleybus"
+            }
+          },
+          "train_number": {
+            "name": "Train number"
+          },
+          "trip_id": {
+            "name": "GTFS trip ID"
+          },
+          "trip_direction": {
+            "name": "Next direction"
+          },
+          "trip_headsign": {
+            "name": "Trip headsign"
+          },
+          "is_air_conditioned": {
+            "name": "Vehicle has air conditioning"
+          },
+          "is_at_stop": {
+            "name": "Vehicle is physically at stop"
+          },
+          "is_canceled": {
+            "name": "Trip is cancelled"
+          },
+          "is_night": {
+            "name": "Night route"
+          },
+          "is_regional": {
+            "name": "Suburban or regional route"
+          },
+          "is_substitute": {
+            "name": "Substitute service"
+          },
+          "is_wheelchair_accessible": {
+            "name": "Vehicle is wheelchair accessible"
+          },
+          "last_stop_id": {
+            "name": "Last reported stop (GTFS ID)"
+          },
+          "last_stop_name": {
+            "name": "Last reported stop (name)"
+          },
+          "stop_id": {
+            "name": "Stop GTFS ID"
+          },
+          "stop_platform": {
+            "name": "Stop platform code"
+          },
+          "latitude": {
+            "name": "Stop location (latitude)"
+          },
+          "longitude": {
+            "name": "Stop location (longitude)"
+          }
+        }
+      },
+      "stop_name": {
+        "name": "Stop name"
+      },
+      "updated": {
+        "name": "Updated"
+      },
+      "zone": {
+        "name": "Zone"
+      }
+    }
+  },
+  "system_health": {
+    "info": {
+      "api_endpoint_reachable": "API service status"
+    }
+  }
+}

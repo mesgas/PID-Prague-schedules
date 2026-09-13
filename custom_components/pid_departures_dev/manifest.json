@@ -1,0 +1,11 @@
+{
+  "domain": "pid_departures_dev",
+  "name": "PID Departure Boards (Dev)",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["frontend", "http"],
+  "integration_type": "device",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "3.1.0"
+}
