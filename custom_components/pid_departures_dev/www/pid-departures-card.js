@@ -18,7 +18,7 @@
  * section per stop - see `sort_by` in DEFAULT_CONFIG.
  */
 
-const CARD_VERSION = "1.3.0";
+const CARD_VERSION = "1.3.1";
 
 console.info(
   `%c PID-DEPARTURES-CARD %c ${CARD_VERSION} `,
@@ -514,6 +514,7 @@ ha-card[data-variant="slim"] .arrival { display: none; }
 .mini-info { min-width: 0; }
 .mini-info .badge { margin-bottom: 6px; }
 .mini-info .headsign { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-info .mini-time { font-size: .72rem; color: var(--dc-muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
 
 [hidden] { display: none !important; }
 
@@ -855,6 +856,7 @@ class PidDeparturesCard extends HTMLElement {
           <div class="mini-info">
             <div class="badge"><ha-icon icon="mdi:bus"></ha-icon><span class="badge-text"></span></div>
             <div class="headsign"></div>
+            <div class="mini-time"></div>
             <div class="row-stop-tag" hidden></div>
           </div>
         </div>`;
@@ -872,6 +874,7 @@ class PidDeparturesCard extends HTMLElement {
     badge.querySelector("ha-icon").setAttribute("icon", ROUTE_TYPE_ICON[routeType] || ROUTE_TYPE_ICON.unknown);
     badge.querySelector(".badge-text").textContent = routeName;
     tile.querySelector(".headsign").textContent = a.trip_headsign || "";
+    tile.querySelector(".mini-time").textContent = formatClockTime(hass, a.departure_time_est);
 
     const stopTagEl = tile.querySelector(".row-stop-tag");
     const showStopTag = boards.length > 1;
