@@ -189,6 +189,11 @@ const STRINGS = {
     editorSortLabel: "Sort departures by",
     editorSortTime: "Time (all selected stops merged together)",
     editorSortStop: "Stop (one section per stop)",
+    editorVariantLabel: "Card size",
+    variantFull: "Full (all details)",
+    variantCompact: "Compact (tighter rows)",
+    variantSlim: "Slim (one line per departure)",
+    variantMini: "Mini (single departure, gauge)",
     editorRowsLabel: "Number of departures to show (per stop when grouped, total when merged)",
     editorMaxMinutesLabel: "Hide departures further than this many minutes away (empty = no limit)",
     editorMaxMinutesPlaceholder: "no limit",
@@ -222,6 +227,11 @@ const STRINGS = {
     editorSortLabel: "Řadit odjezdy podle",
     editorSortTime: "Času (všechny vybrané zastávky sloučené dohromady)",
     editorSortStop: "Zastávky (samostatná sekce pro každou)",
+    editorVariantLabel: "Velikost karty",
+    variantFull: "Plná (všechny detaily)",
+    variantCompact: "Kompaktní (užší řádky)",
+    variantSlim: "Úzká (jeden řádek na odjezd)",
+    variantMini: "Mini (jeden odjezd, ukazatel)",
     editorRowsLabel: "Počet odjezdů k zobrazení (na zastávku při seskupení, celkem při sloučení)",
     editorMaxMinutesLabel: "Skrýt odjezdy vzdálenější než tolik minut (prázdné = bez omezení)",
     editorMaxMinutesPlaceholder: "bez omezení",
@@ -456,6 +466,34 @@ ha-card {
 
 .empty { padding: 18px 4px; text-align: center; color: var(--dc-muted); font-size: .85rem; }
 
+/* --- density variants: same data, less (or differently arranged) space --- */
+ha-card[data-variant="compact"] .row { padding: 5px 2px; }
+ha-card[data-variant="compact"] .arrival { display: none; }
+ha-card[data-variant="compact"] .sub-chips { margin-top: 1px; }
+ha-card[data-variant="compact"] .eta-time { font-size: .92rem; }
+ha-card[data-variant="compact"] .headsign { font-size: .82rem; }
+
+ha-card[data-variant="slim"] .row { padding: 4px 2px; gap: 8px; }
+ha-card[data-variant="slim"] .sub-chips,
+ha-card[data-variant="slim"] .arrival,
+ha-card[data-variant="slim"] .eta-time { display: none; }
+ha-card[data-variant="slim"] .eta-relative { font-size: .88rem; font-weight: 700; color: var(--dc-ink); }
+ha-card[data-variant="slim"] .headsign { font-size: .82rem; }
+ha-card[data-variant="slim"] .badge { padding: 2px 7px; font-size: .76rem; min-width: 2em; }
+
+.mini-tile { display: flex; align-items: center; gap: 16px; padding: 6px 2px 2px; animation: rise-in 480ms cubic-bezier(.22,.61,.36,1) both; }
+.mini-ring { position: relative; width: 84px; height: 84px; flex: none; }
+.mini-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.mini-ring circle { fill: none; stroke-width: 8; }
+.mini-ring .ring-bg { stroke: color-mix(in srgb, var(--dc-ink) 12%, transparent); }
+.mini-ring .ring-fg { stroke: var(--dc-tint); stroke-linecap: round; transition: stroke-dashoffset 900ms ease, stroke 400ms ease; }
+.mini-value { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.mini-value .num { font-size: 1.6rem; font-weight: 800; color: var(--dc-ink); line-height: 1; font-variant-numeric: tabular-nums; }
+.mini-value .unit { font-size: .6rem; color: var(--dc-muted); text-transform: uppercase; letter-spacing: .04em; }
+.mini-info { min-width: 0; }
+.mini-info .badge { margin-bottom: 6px; }
+.mini-info .headsign { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 [hidden] { display: none !important; }
 
 @keyframes rise-in {
@@ -485,6 +523,9 @@ ha-card {
 const DEFAULT_CONFIG = {
   device_ids: [],
   sort_by: "time", // "time" = merge all stops into one chronological list; "stop" = group by stop
+  // "full" = current density; "compact" = tighter rows, no arrival line; "slim" = one line per
+  // departure, countdown only; "mini" = a single-departure gauge tile for a small dashboard slot.
+  variant: "full",
   rows: 6,
   // A low-frequency stop can otherwise fill its departure quota with trips many hours out
   // (the API looks up to 3 days ahead to satisfy the configured departure count), which looks
@@ -565,9 +606,11 @@ class PidDeparturesCard extends HTMLElement {
 
   getCardSize() {
     if (!this._config) return 6;
+    if (this._config.variant === "mini") return 2;
     const boardCount = Math.max(1, (this._config.device_ids || []).length);
     const rows = this._config.rows || 6;
-    return 2 + (this._config.sort_by === "stop" ? rows * boardCount + boardCount : rows);
+    const base = this._config.sort_by === "stop" ? rows * boardCount + boardCount : rows;
+    return 2 + (this._config.variant === "slim" ? Math.ceil(base / 2) : base);
   }
 
   _buildDom() {
@@ -634,6 +677,7 @@ class PidDeparturesCard extends HTMLElement {
     const deviceIds = cfg.device_ids || [];
 
     root.getElementById("clock").textContent = formatClock(hass);
+    root.querySelector("ha-card").dataset.variant = cfg.variant || "full";
 
     if (deviceIds.length === 0) {
       root.getElementById("stop-name").textContent = "PID Departures Card";
@@ -649,6 +693,12 @@ class PidDeparturesCard extends HTMLElement {
     }
 
     const boards = deviceIds.map((id) => this._boardData(id));
+
+    if (cfg.variant === "mini") {
+      this._renderMini(root, hass, cfg, boards);
+      return;
+    }
+
     const grouped = cfg.sort_by === "stop" && boards.length > 1;
     const showStopTag = !grouped && boards.length > 1;
 
@@ -730,6 +780,107 @@ class PidDeparturesCard extends HTMLElement {
       .sort()
       .pop();
     root.getElementById("footer").textContent = latestUpdate ? t(hass, "updated", formatEta(hass, latestUpdate)) : "";
+  }
+
+  /** "mini" variant: a single gauge tile for the very next departure - for a small dashboard
+   * slot where even the "slim" row list is too much. Header chips, alerts and vehicle pills
+   * are dropped entirely to keep the footprint minimal. */
+  _renderMini(root, hass, cfg, boards) {
+    root.getElementById("stop-name").textContent =
+      cfg.title || (boards.length === 1 ? boards[0].stopName : t(hass, "stopsCount", boards.length));
+    root.getElementById("head-chips").innerHTML = "";
+    setHidden(root.getElementById("alert-bar"), true);
+    root.getElementById("vehicles").innerHTML = "";
+    root.getElementById("footer").textContent = "";
+
+    const merged = [];
+    for (const b of boards) {
+      for (const dep of b.departures) {
+        if (dep.state.attributes.is_canceled) continue;
+        if (!withinHorizon(dep.state, cfg.max_minutes_ahead)) continue;
+        merged.push({ ...dep, stopLabel: b.stopName });
+      }
+    }
+    merged.sort(
+      (a, b) =>
+        (Date.parse(a.state.attributes.departure_time_est) || Infinity) -
+        (Date.parse(b.state.attributes.departure_time_est) || Infinity)
+    );
+
+    const contentEl = root.getElementById("content");
+    const hasNext = merged.length > 0;
+    setHidden(root.getElementById("empty"), hasNext);
+    root.getElementById("empty").textContent = t(hass, "noUpcoming");
+
+    if (!hasNext) {
+      if (this._contentShape !== "mini:empty") {
+        this._contentShape = "mini:empty";
+        contentEl.innerHTML = "";
+      }
+      return;
+    }
+
+    if (this._contentShape !== "mini") {
+      this._contentShape = "mini";
+      contentEl.innerHTML = `
+        <div class="mini-tile">
+          <div class="mini-ring">
+            <svg viewBox="0 0 100 100">
+              <circle class="ring-bg" cx="50" cy="50" r="42"></circle>
+              <circle class="ring-fg" cx="50" cy="50" r="42"></circle>
+            </svg>
+            <div class="mini-value"><span class="num"></span><span class="unit"></span></div>
+          </div>
+          <div class="mini-info">
+            <div class="badge"><ha-icon icon="mdi:bus"></ha-icon><span class="badge-text"></span></div>
+            <div class="headsign"></div>
+            <div class="row-stop-tag" hidden></div>
+          </div>
+        </div>`;
+    }
+
+    const dep = merged[0];
+    const a = dep.state.attributes;
+    const routeType = a.route_type || "unknown";
+    const routeName = dep.state.state || "?";
+    const tile = contentEl.querySelector(".mini-tile");
+    tile.onclick = () => moreInfo(this, dep.entityId);
+
+    const badge = tile.querySelector(".badge");
+    badge.style.setProperty("--route-tint", routeTint(routeType, routeName, a.is_night));
+    badge.querySelector("ha-icon").setAttribute("icon", ROUTE_TYPE_ICON[routeType] || ROUTE_TYPE_ICON.unknown);
+    badge.querySelector(".badge-text").textContent = routeName;
+    tile.querySelector(".headsign").textContent = a.trip_headsign || "";
+
+    const stopTagEl = tile.querySelector(".row-stop-tag");
+    const showStopTag = boards.length > 1;
+    setHidden(stopTagEl, !showStopTag);
+    stopTagEl.textContent = showStopTag ? dep.stopLabel : "";
+
+    const diffMin = Math.max(0, (Date.parse(a.departure_time_est) - Date.now()) / 60000);
+    const cap = cfg.max_minutes_ahead || 30;
+    const pct = Math.max(0, Math.min(1, diffMin / cap));
+    const r = 42;
+    const circumference = 2 * Math.PI * r;
+    const circle = tile.querySelector(".ring-fg");
+    circle.style.strokeDasharray = `${circumference}`;
+    circle.style.strokeDashoffset = `${circumference * (1 - pct)}`;
+    circle.style.stroke = diffMin < 1.5 ? "#ff6b6b" : diffMin < 5 ? "#ffb454" : "var(--dc-tint)";
+
+    const roundedMin = Math.round(diffMin);
+    const numEl = tile.querySelector(".num");
+    const unitEl = tile.querySelector(".unit");
+    if (diffMin < 0.75) {
+      numEl.textContent = "●";
+      unitEl.textContent = "";
+    } else {
+      numEl.textContent = String(roundedMin);
+      unitEl.textContent = "min";
+    }
+    if (this._lastMiniValue !== undefined && this._lastMiniValue !== numEl.textContent) {
+      flash(numEl, "changed");
+    }
+    this._lastMiniValue = numEl.textContent;
   }
 
   /** Build (only when the shape changes) and patch the rows/sections for this render. */
@@ -848,7 +999,11 @@ class PidDeparturesCard extends HTMLElement {
     timeEl.classList.toggle("soon", !a.is_canceled && Date.parse(a.departure_time_est) - Date.now() < 90000);
 
     const relativeEl = rowEl.querySelector(".eta-relative");
-    const relativeText = a.is_canceled ? "" : formatEta(this._hass, a.departure_time_est);
+    // The "slim" variant hides .eta-time (where "canceled" normally shows) entirely, so it
+    // needs the label here instead - other variants keep it only in the bigger .eta-time.
+    const relativeText = a.is_canceled
+      ? (cfg.variant === "slim" ? t(this._hass, "canceled") : "")
+      : formatEta(this._hass, a.departure_time_est);
     if (this._lastEtaText[entityId] !== undefined && this._lastEtaText[entityId] !== relativeText) {
       flash(relativeEl, "changed");
     }
@@ -990,6 +1145,8 @@ class PidDeparturesCardEditor extends HTMLElement {
     }
     const sortEl = root.getElementById("sort_by");
     if (sortEl && sortEl !== active) sortEl.value = cfg.sort_by;
+    const variantEl = root.getElementById("variant");
+    if (variantEl && variantEl !== active) variantEl.value = cfg.variant;
     const rowsEl = root.getElementById("rows");
     if (rowsEl && rowsEl !== active) rowsEl.value = cfg.rows;
     for (const key of TOGGLE_FIELDS) {
@@ -1016,6 +1173,15 @@ class PidDeparturesCardEditor extends HTMLElement {
         </select>
       </div>
       <div class="field">
+        <label>${t(this._hass, "editorVariantLabel")}</label>
+        <select id="variant">
+          <option value="full" ${cfg.variant === "full" ? "selected" : ""}>${t(this._hass, "variantFull")}</option>
+          <option value="compact" ${cfg.variant === "compact" ? "selected" : ""}>${t(this._hass, "variantCompact")}</option>
+          <option value="slim" ${cfg.variant === "slim" ? "selected" : ""}>${t(this._hass, "variantSlim")}</option>
+          <option value="mini" ${cfg.variant === "mini" ? "selected" : ""}>${t(this._hass, "variantMini")}</option>
+        </select>
+      </div>
+      <div class="field">
         <label>${t(this._hass, "editorRowsLabel")}</label>
         <input type="number" id="rows" min="1" max="20" value="${cfg.rows}" />
       </div>
@@ -1039,6 +1205,7 @@ class PidDeparturesCardEditor extends HTMLElement {
       el.addEventListener("change", () => this._changeDevices());
     }
     this.shadowRoot.getElementById("sort_by").addEventListener("change", (e) => this._change("sort_by", e.target.value));
+    this.shadowRoot.getElementById("variant").addEventListener("change", (e) => this._change("variant", e.target.value));
     this.shadowRoot.getElementById("rows").addEventListener("change", (e) => this._change("rows", Number(e.target.value) || 6));
     this.shadowRoot.getElementById("max_minutes_ahead").addEventListener("change", (e) =>
       this._change("max_minutes_ahead", e.target.value ? Number(e.target.value) : null)

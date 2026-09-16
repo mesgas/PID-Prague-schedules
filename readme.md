@@ -74,6 +74,7 @@ device_ids:
   - <first departure board's device id>
   - <second departure board's device id>  # optional - add as many as you like
 sort_by: time  # "time" merges all stops into one chronological list; "stop" groups them into sections
+variant: full  # "full" | "compact" | "slim" | "mini" - see below
 rows: 6  # total rows when sort_by is "time"; rows per stop when sort_by is "stop"
 show_platform: true
 show_zone: true
@@ -86,6 +87,12 @@ show_vehicle_tracking: true
 ```
 
 The visual editor lets you tick one or more devices and toggle each of these without touching YAML. With a single device the card looks and behaves like a normal single-stop board; with several, `sort_by` decides whether they're merged into one time-ordered table (each row tagged with its stop) or shown as separate sections. The card shows a live, second-by-second countdown to each departure, colour-coded delays, service alerts (aggregated across all shown stops), and (if enabled) a pulsing indicator per stop while its next vehicle is being tracked.
+
+`variant` picks how much space it takes up, for fitting it into a small dashboard slot or a sidebar:
+- **`full`** (default) - everything: absolute + relative time, delay/air-condition/wheelchair icons, optional arrival time.
+- **`compact`** - the same information, tighter row spacing, no arrival-time line.
+- **`slim`** - one line per departure: line badge, headsign, and just the countdown - no icons, no absolute time.
+- **`mini`** - a single tile for only the very next departure, with a countdown ring gauge instead of a list. Good for a small corner of a dashboard where even one row is too much.
 
 A second card - **PID Alerts Card** (`custom:pid-alerts-card`) - shows just the service announcements for one or more stops, full-size instead of tucked into a collapsible bar, with the translated text (if configured, see above) as the primary line and the Czech original underneath (toggle `show_original: false` to hide it):
 
