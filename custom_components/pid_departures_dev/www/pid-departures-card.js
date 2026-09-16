@@ -18,7 +18,7 @@
  * section per stop - see `sort_by` in DEFAULT_CONFIG.
  */
 
-const CARD_VERSION = "1.1.0";
+const CARD_VERSION = "1.2.0";
 
 console.info(
   `%c PID-DEPARTURES-CARD %c ${CARD_VERSION} `,
