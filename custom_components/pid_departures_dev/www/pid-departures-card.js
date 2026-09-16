@@ -18,7 +18,7 @@
  * section per stop - see `sort_by` in DEFAULT_CONFIG.
  */
 
-const CARD_VERSION = "1.2.0";
+const CARD_VERSION = "1.3.0";
 
 console.info(
   `%c PID-DEPARTURES-CARD %c ${CARD_VERSION} `,
@@ -473,13 +473,34 @@ ha-card[data-variant="compact"] .sub-chips { margin-top: 1px; }
 ha-card[data-variant="compact"] .eta-time { font-size: .92rem; }
 ha-card[data-variant="compact"] .headsign { font-size: .82rem; }
 
-ha-card[data-variant="slim"] .row { padding: 4px 2px; gap: 8px; }
-ha-card[data-variant="slim"] .sub-chips,
-ha-card[data-variant="slim"] .arrival,
-ha-card[data-variant="slim"] .eta-time { display: none; }
-ha-card[data-variant="slim"] .eta-relative { font-size: .88rem; font-weight: 700; color: var(--dc-ink); }
-ha-card[data-variant="slim"] .headsign { font-size: .82rem; }
-ha-card[data-variant="slim"] .badge { padding: 2px 7px; font-size: .76rem; min-width: 2em; }
+/* "slim" turns the whole row into one 4-column grid: badge | headsign+stop-tag | icons | time.
+   .mid (which normally wraps headsign/stop-tag/sub-chips as one block) is neutralized with
+   "display: contents" so those three become direct grid items here instead - that's what lets
+   the icons sit in their own column right next to the time, vertically centered against the
+   row like the badge, with no extra alignment tricks needed anywhere. */
+ha-card[data-variant="slim"] .row {
+  grid-template-columns: auto 1fr auto auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  padding: 5px 2px;
+}
+ha-card[data-variant="slim"] .mid { display: contents; }
+ha-card[data-variant="slim"] .badge { grid-column: 1; grid-row: 1 / 3; align-self: center; padding: 2px 7px; font-size: .76rem; min-width: 2em; }
+ha-card[data-variant="slim"] .headsign { grid-column: 2; grid-row: 1; font-size: .82rem; }
+ha-card[data-variant="slim"] .row-stop-tag { grid-column: 2; grid-row: 2; }
+ha-card[data-variant="slim"] .sub-chips {
+  grid-column: 3; grid-row: 1 / 3; align-self: center;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 0;
+}
+ha-card[data-variant="slim"] .mini-chip { font-size: .6rem; gap: 2px; }
+ha-card[data-variant="slim"] .mini-chip ha-icon { --mdc-icon-size: 11px; }
+/* eta-col: relative countdown on top (more actionable at a glance), absolute time smaller
+   underneath - reordered via flex "order", not DOM order, so full/compact (which want the
+   absolute time as the big primary line) don't need their own markup. */
+ha-card[data-variant="slim"] .eta-col { grid-column: 4; grid-row: 1 / 3; align-self: center; display: flex; flex-direction: column; align-items: flex-end; }
+ha-card[data-variant="slim"] .eta-relative { order: 1; font-size: .88rem; font-weight: 700; color: var(--dc-ink); }
+ha-card[data-variant="slim"] .eta-time { order: 2; font-size: .68rem; font-weight: 600; color: var(--dc-muted); }
+ha-card[data-variant="slim"] .arrival { display: none; }
 
 .mini-tile { display: flex; align-items: center; gap: 16px; padding: 6px 2px 2px; animation: rise-in 480ms cubic-bezier(.22,.61,.36,1) both; }
 .mini-ring { position: relative; width: 84px; height: 84px; flex: none; }
@@ -998,17 +1019,18 @@ class PidDeparturesCard extends HTMLElement {
     timeEl.textContent = a.is_canceled ? t(this._hass, "canceled") : formatClockTime(this._hass, a.departure_time_est);
     timeEl.classList.toggle("soon", !a.is_canceled && Date.parse(a.departure_time_est) - Date.now() < 90000);
 
+    // "canceled" always lives in .eta-time (now visible in every variant, including slim);
+    // .eta-relative is simply hidden for a canceled row instead of showing a blank line.
     const relativeEl = rowEl.querySelector(".eta-relative");
-    // The "slim" variant hides .eta-time (where "canceled" normally shows) entirely, so it
-    // needs the label here instead - other variants keep it only in the bigger .eta-time.
-    const relativeText = a.is_canceled
-      ? (cfg.variant === "slim" ? t(this._hass, "canceled") : "")
-      : formatEta(this._hass, a.departure_time_est);
-    if (this._lastEtaText[entityId] !== undefined && this._lastEtaText[entityId] !== relativeText) {
-      flash(relativeEl, "changed");
+    setHidden(relativeEl, a.is_canceled);
+    if (!a.is_canceled) {
+      const relativeText = formatEta(this._hass, a.departure_time_est);
+      if (this._lastEtaText[entityId] !== undefined && this._lastEtaText[entityId] !== relativeText) {
+        flash(relativeEl, "changed");
+      }
+      this._lastEtaText[entityId] = relativeText;
+      relativeEl.textContent = relativeText;
     }
-    this._lastEtaText[entityId] = relativeText;
-    relativeEl.textContent = relativeText;
 
     const arrivalEl = rowEl.querySelector(".arrival");
     if (cfg.show_arrival_time && a.arrival_time_est) {
