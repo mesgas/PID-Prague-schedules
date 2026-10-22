@@ -1561,6 +1561,8 @@ button.chip { cursor: pointer; }
 .mark.live.focus { z-index: 3; opacity: 1; transform-origin: center; outline: 3px solid color-mix(in srgb, var(--dc-tint) 80%, #fff); outline-offset: 2px; }
 /* Zoomed in on the streets the radar is a blur: it steps back. */
 ha-card[data-mode="live"] .frames .frame.on { opacity: .18; }
+/* On the inverted dark map the screen blend lights it up: fainter still. */
+ha-card[data-mode="live"] .map[data-dark="true"] .frames .frame.on { opacity: .08; }
 .modes {
   display: inline-flex; padding: 3px; gap: 3px; border-radius: 999px;
   background: color-mix(in srgb, var(--dc-ink) 7%, transparent);

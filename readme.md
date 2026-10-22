@@ -18,9 +18,11 @@ This is an independent fork of [dvejsada/PID_integration](https://github.com/dve
 
 This repository has its own commit history, independent of the original project.
 
-| Departures card (3 merged stops) | Device page |
+![PID Transit card: rain radar, departures from three stops and a service alert](assets/transit-card.png)
+
+| Live vehicles view | Device page |
 |:---:|:---:|
-| ![PID Departures Card showing three merged stops](assets/departures-card.png) | ![Device page with its sensors](assets/device-page.png) |
+| ![The vehicles view in the dark theme: every vehicle of the stops' lines nearby, with its line and heading](assets/transit-card-vehicles.png) | ![Device page with its sensors](assets/device-page.png) |
 
 ## Installation
 
