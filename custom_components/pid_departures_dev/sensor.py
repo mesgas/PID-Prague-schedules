@@ -7,12 +7,13 @@ from typing import Any
 
 from homeassistant.helpers.entity import Entity
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import ICON_STOP, ICON_LAT, ICON_LON, ICON_ZONE, ICON_PLATFORM, ICON_UPDATE, ROUTE_TYPE_ICON, RouteType
-from .coordinator import PIDConfigEntry, PIDDepartureUpdateCoordinator
+from .const import ICON_STOP, ICON_LAT, ICON_LON, ICON_ZONE, ICON_PLATFORM, ICON_UPDATE, ICON_VEHICLE, ROUTE_TYPE_ICON, RouteType
+from .coordinator import PIDConfigEntry, PIDDepartureUpdateCoordinator, PIDLiveVehiclesCoordinator
 from .entity import BaseEntity
 
 
@@ -38,6 +39,8 @@ async def async_setup_entry(
     if coordinator.platform != "":
         new_entities.append(PlatformSensor(coordinator))
     new_entities.append(UpdateSensor(coordinator))
+    if getattr(coordinator, "live", None) is not None:
+        new_entities.append(LiveVehiclesSensor(coordinator.live, coordinator))
 
     # Add all entities to HA
     async_add_entities(new_entities)
@@ -199,3 +202,36 @@ class UpdateSensor(BaseEntity, SensorEntity):
     @property
     def native_value(self) -> datetime | None:
         return self.coordinator.last_updated
+
+
+class LiveVehiclesSensor(CoordinatorEntity[PIDLiveVehiclesCoordinator], SensorEntity):
+    """Vehicles of the lines serving this stop, around it, with their live position.
+
+    The state is how many there are; the list lives in the `vehicles` attribute,
+    which is kept out of the recorder: it changes every 15 seconds and its history
+    is of no use, but would grow the database by megabytes a day.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "live_vehicles"
+    _attr_icon = ICON_VEHICLE
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _unrecorded_attributes = frozenset({"vehicles"})
+
+    def __init__(
+        self, coordinator: PIDLiveVehiclesCoordinator, board: PIDDepartureUpdateCoordinator
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = board.device_info
+        self._attr_unique_id = f"{board.board_id}_{self.translation_key}"
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.data or [])
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any]:
+        return {
+            "vehicles": self.coordinator.data or [],
+            "updated": self.coordinator.updated.isoformat() if self.coordinator.updated else None,
+        }

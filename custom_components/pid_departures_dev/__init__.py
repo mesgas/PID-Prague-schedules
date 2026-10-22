@@ -8,7 +8,7 @@ from homeassistant.core import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
-from .coordinator import PIDConfigEntry, PIDDepartureUpdateCoordinator
+from .coordinator import PIDConfigEntry, PIDDepartureUpdateCoordinator, PIDLiveVehiclesCoordinator
 from .frontend import JSModuleRegistration
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -42,6 +42,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: PIDConfigEntry) -> bool:
     """Set up Departure Board from a config entry."""
     coordinator = PIDDepartureUpdateCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
+
+    # Live vehicles are a bonus on the board: their first poll may fail without
+    # holding the entry back, and they simply show up on the next one.
+    coordinator.live = None
+    if coordinator.live_vehicles:
+        coordinator.live = PIDLiveVehiclesCoordinator(hass, entry, coordinator)
+        await coordinator.live.async_refresh()
 
     entry.runtime_data = coordinator
 

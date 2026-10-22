@@ -23,6 +23,7 @@ from .const import (
     CONF_SKIP,
     CONF_STOP_SEL,
     CONF_TRACK_VEHICLE,
+    CONF_LIVE_VEHICLES,
     CONF_TRANSLATE_AGENT,
     CONF_TRANSLATE_LANGUAGE,
     CONF_WALKING_OFFSET,
@@ -299,6 +300,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             ),
             vol.Optional(
                 CONF_TRACK_VEHICLE, default=current(CONF_TRACK_VEHICLE, False)
+            ): bool,
+            vol.Optional(
+                CONF_LIVE_VEHICLES, default=current(CONF_LIVE_VEHICLES, True)
             ): bool,
         })
 

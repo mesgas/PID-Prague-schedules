@@ -6,7 +6,14 @@ from urllib.parse import urlencode
 
 import aiohttp
 
-from .const import HTTP_TIMEOUT, STOPS_CACHE_TTL, STOPS_URL, API_URL, VEHICLE_POSITION_URL
+from .const import (
+    API_URL,
+    HTTP_TIMEOUT,
+    PUBLIC_VEHICLES_URL,
+    STOPS_CACHE_TTL,
+    STOPS_URL,
+    VEHICLE_POSITION_URL,
+)
 from .errors import CannotConnect, StopNotFound, WrongApiKey
 
 _LOGGER = logging.getLogger(__name__)
@@ -95,6 +102,30 @@ class PIDDepartureBoardAPI:
             # A trip that has not started yet (or already finished) is a normal state,
             # not an error - the board should just show no live position for it.
             return None
+
+    @staticmethod
+    async def async_fetch_live_vehicles(
+        session: aiohttp.ClientSession,
+        api_key: str,
+        bounding_box: tuple[float, float, float, float],
+        route_short_names: list[str],
+    ) -> list[dict[str, Any]]:
+        """Get the live positions of every vehicle of the given routes inside a box.
+
+        `bounding_box` is (top-left lat, top-left lon, bottom-right lat, bottom-right lon).
+        Returns the GeoJSON features: a Point for surface vehicles, a (Multi)Polygon - the
+        track segment it is on - for the metro.
+        """
+        parameters: dict[str, Any] = {
+            "boundingBox": ",".join(f"{v:.5f}" for v in bounding_box),
+        }
+        if route_short_names:
+            parameters["routeShortName"] = route_short_names
+        try:
+            data = await _get_json(session, PUBLIC_VEHICLES_URL, api_key, parameters)
+        except StopNotFound:
+            return []
+        return list(data.get("features") or [])
 
     @staticmethod
     async def async_fetch_stops(

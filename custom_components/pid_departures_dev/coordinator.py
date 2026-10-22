@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import logging
+import math
 from typing import Any, cast
 
 from attrs import define
@@ -23,6 +24,7 @@ from .const import (
     CONF_DEP_NUM,
     CONF_FILTER,
     CONF_ID_TYPE,
+    CONF_LIVE_VEHICLES,
     CONF_MODE,
     CONF_ORDER,
     CONF_SKIP,
@@ -31,6 +33,9 @@ from .const import (
     CONF_TRANSLATE_LANGUAGE,
     CONF_WALKING_OFFSET,
     DOMAIN,
+    LIVE_VEHICLES_INTERVAL,
+    LIVE_VEHICLES_MAX,
+    LIVE_VEHICLES_RADIUS_KM,
     SCAN_INTERVAL,
 )
 from .errors import CannotConnect, StopNotFound, WrongApiKey
@@ -103,6 +108,7 @@ class PIDDepartureUpdateCoordinator(DataUpdateCoordinator[BoardData]):
         self.walking_offset: int = int(self._option(CONF_WALKING_OFFSET, 0))
         self.cal_events_count: int = int(self._option(CONF_CAL_EVENTS_NUM, 0))
         self.track_vehicle: bool = bool(self._option(CONF_TRACK_VEHICLE, False))
+        self.live_vehicles: bool = bool(self._option(CONF_LIVE_VEHICLES, True))
         self.mode: str | None = self._option(CONF_MODE, None)
         self.order: str | None = self._option(CONF_ORDER, None)
         self.filter_: str | None = self._option(CONF_FILTER, None)
@@ -287,3 +293,105 @@ class PIDDepartureUpdateCoordinator(DataUpdateCoordinator[BoardData]):
         if self.data.infotexts:
             return True, self.data.infotexts[0]
         return False, {}
+
+
+def _feature_point(geometry: dict[str, Any] | None) -> tuple[float, float] | None:
+    """(lat, lon) of a vehicle feature: the point itself, or the middle of the
+    track segment a metro train is reported on."""
+    if not geometry:
+        return None
+    coords = geometry.get("coordinates")
+    kind = geometry.get("type")
+    points: list[list[float]] = []
+    if kind == "Point" and coords:
+        points = [coords]
+    elif kind == "Polygon" and coords:
+        points = coords[0]
+    elif kind == "MultiPolygon" and coords:
+        points = [p for polygon in coords for p in polygon[0]]
+    points = [p for p in points if isinstance(p, (list, tuple)) and len(p) >= 2]
+    if not points:
+        return None
+    lon = sum(p[0] for p in points) / len(points)
+    lat = sum(p[1] for p in points) / len(points)
+    return lat, lon
+
+
+class PIDLiveVehiclesCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
+    """Live positions of the vehicles of the lines serving a stop, around it.
+
+    Polled more often than the board itself (positions move by the second) with a
+    single request: every vehicle of the routes on the board inside a box around
+    the stop, so the map can show what is coming before it is the next one.
+    """
+
+    def __init__(
+        self, hass: HomeAssistant, entry: PIDConfigEntry, board: PIDDepartureUpdateCoordinator
+    ) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=entry,
+            name=f"{DOMAIN}_live_vehicles",
+            update_interval=LIVE_VEHICLES_INTERVAL,
+        )
+        self.board = board
+        self.updated: datetime | None = None
+
+    def _bounding_box(self) -> tuple[float, float, float, float] | None:
+        lat, lon = self.board.latitude, self.board.longitude
+        if lat is None or lon is None:
+            return None
+        dlat = LIVE_VEHICLES_RADIUS_KM / 111.0
+        dlon = LIVE_VEHICLES_RADIUS_KM / (111.0 * max(math.cos(math.radians(lat)), 0.01))
+        return lat + dlat, lon - dlon, lat - dlat, lon + dlon
+
+    async def _async_update_data(self) -> list[dict[str, Any]]:
+        if not self.board.data:
+            return self.data or []
+        departures = self.board.departures
+        routes = sorted({d.route_name for d in departures if d.route_name})
+        box = self._bounding_box()
+        if not routes or box is None:
+            return []
+        try:
+            features = await PIDDepartureBoardAPI.async_fetch_live_vehicles(
+                self.board._session, self.board.api_key, box, routes
+            )
+        except WrongApiKey as err:
+            raise ConfigEntryAuthFailed("Invalid API key") from err
+        except CannotConnect:
+            # Keep the last known positions: a missed poll should not make every
+            # vehicle vanish from the map for 15 seconds.
+            _LOGGER.debug("Could not fetch live vehicles; keeping the last positions")
+            return self.data or []
+
+        # The trips on the board, to tell "coming here" from "same line, elsewhere".
+        board_trips = {d.trip_id: d for d in departures if d.trip_id}
+        vehicles: list[dict[str, Any]] = []
+        for feature in features:
+            props = feature.get("properties") or {}
+            if props.get("state_position") not in ("on_track", "at_stop"):
+                continue
+            point = _feature_point(feature.get("geometry"))
+            if point is None:
+                continue
+            trip_id = props.get("gtfs_trip_id")
+            departure = board_trips.get(trip_id)
+            vehicles.append({
+                "trip_id": trip_id,
+                "vehicle_id": props.get("vehicle_id"),
+                "route": props.get("gtfs_route_short_name"),
+                "route_type": props.get("route_type"),
+                "latitude": round(point[0], 6),
+                "longitude": round(point[1], 6),
+                "bearing": props.get("bearing"),
+                "delay": props.get("delay"),
+                "state": props.get("state_position"),
+                "to_stop": departure is not None,
+                "headsign": departure.trip_headsign if departure else None,
+            })
+        # Vehicles heading here first, then by line.
+        vehicles.sort(key=lambda v: (not v["to_stop"], str(v["route"])))
+        self.updated = dt_util.now()
+        return vehicles[:LIVE_VEHICLES_MAX]

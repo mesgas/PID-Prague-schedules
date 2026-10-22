@@ -56,11 +56,13 @@
           "departures_number": "Number of departures to display",
           "cal_events_number": "Number of calendar events for departures to be created",
           "walking_offset": "Walking time offset (minutes)",
-          "track_vehicle": "Track live position of the next vehicle"
+          "track_vehicle": "Track live position of the next vehicle",
+          "live_vehicles": "Show live positions of all vehicles of these lines nearby"
         },
         "data_description": {
           "walking_offset": "Offset to compensate for walking distance to stop (positive = show future departures, negative = show past departures)",
-          "track_vehicle": "Adds a device tracker showing the GPS position of the next vehicle due at this stop"
+          "track_vehicle": "Adds a device tracker showing the GPS position of the next vehicle due at this stop",
+          "live_vehicles": "Adds a sensor with the GPS position of every vehicle of the lines serving this stop within 3 km, refreshed every 15 seconds, for the map of the dashboard card"
         }
       },
       "advanced": {
@@ -343,6 +345,17 @@
       },
       "zone": {
         "name": "Zone"
+      },
+      "live_vehicles": {
+        "name": "Live vehicles",
+        "state_attributes": {
+          "vehicles": {
+            "name": "Vehicles"
+          },
+          "updated": {
+            "name": "Updated"
+          }
+        }
       }
     }
   },

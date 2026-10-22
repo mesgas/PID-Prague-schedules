@@ -46,10 +46,12 @@
         "data": {
           "departures_number": "Počet odchodov na zobrazenie",
           "cal_events_number": "Počet kalendárnych udalostí pre odchody, ktoré sa majú vytvoriť",
-          "walking_offset": "Časový posun pre chôdzu (minúty)"
+          "walking_offset": "Časový posun pre chôdzu (minúty)",
+          "live_vehicles": "Show live positions of all vehicles of these lines nearby"
         },
         "data_description": {
-          "walking_offset": "Posun na kompenzáciu vzdialenosti chôdze k zastávke (kladné = zobrazí budúce odchody, záporné = zobrazí minulé odchody)"
+          "walking_offset": "Posun na kompenzáciu vzdialenosti chôdze k zastávke (kladné = zobrazí budúce odchody, záporné = zobrazí minulé odchody)",
+          "live_vehicles": "Adds a sensor with the GPS position of every vehicle of the lines serving this stop within 3 km, refreshed every 15 seconds, for the map of the dashboard card"
         }
       }
     }
@@ -278,6 +280,17 @@
       },
       "zone": {
         "name": "Zóna"
+      },
+      "live_vehicles": {
+        "name": "Vozidlá v reálnom čase",
+        "state_attributes": {
+          "vehicles": {
+            "name": "Vozidlá"
+          },
+          "updated": {
+            "name": "Aktualizované"
+          }
+        }
       }
     }
   },

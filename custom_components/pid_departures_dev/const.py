@@ -22,8 +22,13 @@ API_BASE = "https://api.golemio.cz"
 API_URL = f"{API_BASE}/v2/pid/departureboards"
 STOPS_URL = f"{API_BASE}/v2/gtfs/stops"
 VEHICLE_POSITION_URL = f"{API_BASE}/v2/vehiclepositions"
+PUBLIC_VEHICLES_URL = f"{API_BASE}/v2/public/vehiclepositions"
 HTTP_TIMEOUT: Final = ClientTimeout(total=10)
 SCAN_INTERVAL: Final = timedelta(seconds=60)
+# Live vehicles: Golemio refreshes positions roughly every 10-20 s.
+LIVE_VEHICLES_INTERVAL: Final = timedelta(seconds=15)
+LIVE_VEHICLES_RADIUS_KM: Final = 3.0
+LIVE_VEHICLES_MAX: Final = 60
 STOPS_CACHE_TTL: Final = timedelta(hours=24)
 
 ICON_STOP = "mdi:bus-stop-uncovered"
@@ -43,6 +48,7 @@ CONF_STOP_SEL = "stop_selector"
 CONF_WALKING_OFFSET = "walking_offset"
 CONF_ID_TYPE = "id_type"
 CONF_TRACK_VEHICLE = "track_vehicle"
+CONF_LIVE_VEHICLES = "live_vehicles"
 CONF_MODE = "mode"
 CONF_ORDER = "order"
 CONF_FILTER = "filter"

@@ -56,6 +56,12 @@ The number of departures, number of calendar events, the walking-time offset, an
 
 If your Golemio API key stops working (e.g. it expired), Home Assistant will prompt you to re-authenticate; just enter a new key and the board reloads automatically.
 
+### Live vehicle positions
+
+With **Show live positions of all vehicles of these lines nearby** enabled (the default, under **Configure**), each board gets a *Live vehicles* sensor. Every 15 seconds it asks Golemio's `/v2/public/vehiclepositions` - in a single request - for every vehicle of the routes currently on the board within 3 km of the stop. The state is how many there are; the `vehicles` attribute lists them with `route`, `route_type`, `latitude`, `longitude`, `bearing`, `delay` (seconds), `state` (`on_track` / `at_stop`), `trip_id`, `vehicle_id`, `headsign` and `to_stop` (true for the trips on this board's departures). Metro trains are reported as the track segment they are on; the sensor gives its centre. The list is kept out of the recorder, so it does not grow the database. A failed poll keeps the last known positions instead of emptying the list.
+
+The [dc-transit-card](https://github.com/mesgas) of the dashboard-cards suite draws these on a map, gliding between updates.
+
 ### Translating service announcements
 
 Golemio's service announcements ("infotexts") are Czech-only. If you have a conversation agent configured in Home Assistant (e.g. Google Generative AI / Gemini, used for Assist), you can point the integration at it under **Configure → advanced options**: pick the agent and the language to translate into. Translated text is cached in memory (per unique announcement) so the agent isn't re-queried every 60-second refresh - only when an announcement actually changes.
