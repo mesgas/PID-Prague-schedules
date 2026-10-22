@@ -13,8 +13,7 @@ This is an independent fork of [dvejsada/PID_integration](https://github.com/dve
 - Live GTFS-based stop search in the config flow (no more bundled, easily-outdated stop list)
 - Extra Golemio API query options (mode, ordering, filtering, air-condition info, headsign enrichment)
 - Live GPS tracking of the next incoming vehicle
-- A fully rewritten, animated Lovelace card bundled with the integration (no external card dependency), supporting one or several stops per card, merged or grouped
-- A second card for service announcements, optionally translated out of Czech via any Home Assistant conversation agent (e.g. Gemini)
+- A Lovelace card bundled with the integration (no external card dependency): rain radar and live vehicles on a map, departures from one or several stops with live countdowns, and service alerts, optionally translated out of Czech via any Home Assistant conversation agent (e.g. Gemini)
 - Modernized Home Assistant integration internals (`DataUpdateCoordinator`, options flow, reauth flow)
 
 This repository has its own commit history, independent of the original project.
@@ -72,41 +71,42 @@ A few more Golemio PID endpoints exist (`/v3/pid/infotexts` city-wide, `/v3-v4/p
 
 ## Dashboard
 
-The integration ships its own Lovelace card - **PID Departures Card** - with no external dependency (it replaces the previous Flex-table-card example). Add it from the card picker ("+ Add card" → search "PID Departures"), or with YAML:
+The integration ships its own Lovelace card - **PID Transit Card** - and registers it by itself, with no external dependency. Add it from the card picker ("+ Add card" → search "PID Transit"), or with YAML:
 
 ```yaml
-type: custom:pid-departures-card
-device_ids:
-  - <first departure board's device id>
-  - <second departure board's device id>  # optional - add as many as you like
-sort_by: time  # "time" merges all stops into one chronological list; "stop" groups them into sections
-variant: full  # "full" | "compact" | "slim" | "mini" - see below
-rows: 6  # total rows when sort_by is "time"; rows per stop when sort_by is "stop"
-show_platform: true
-show_zone: true
-show_delay: true
-show_air_condition: true
-show_wheelchair: true
-show_arrival_time: false
-show_alerts: true
-show_vehicle_tracking: true
-```
-
-The visual editor lets you tick one or more devices and toggle each of these without touching YAML. With a single device the card looks and behaves like a normal single-stop board; with several, `sort_by` decides whether they're merged into one time-ordered table (each row tagged with its stop) or shown as separate sections. The card shows a live, second-by-second countdown to each departure, colour-coded delays, service alerts (aggregated across all shown stops), and (if enabled) a pulsing indicator per stop while its next vehicle is being tracked.
-
-`variant` picks how much space it takes up, for fitting it into a small dashboard slot or a sidebar:
-- **`full`** (default) - everything: absolute + relative time, delay/air-condition/wheelchair icons, optional arrival time.
-- **`compact`** - the same information, tighter row spacing, no arrival-time line.
-- **`slim`** - one line per departure: line badge, headsign, and just the countdown - no icons, no absolute time.
-- **`mini`** - a single tile for only the very next departure, with a countdown ring gauge instead of a list. Good for a small corner of a dashboard where even one row is too much.
-
-A second card - **PID Alerts Card** (`custom:pid-alerts-card`) - shows just the service announcements for one or more stops, full-size instead of tucked into a collapsible bar, with the translated text (if configured, see above) as the primary line and the Czech original underneath (toggle `show_original: false` to hide it):
-
-```yaml
-type: custom:pid-alerts-card
-device_ids:
+type: custom:pid-transit-card
+device_ids:            # optional: leave out to show every departure board
   - <departure board's device id>
-show_original: true
+rows: 12
+sort_by: time          # "time" merges all stops into one list; "stop" gives each its section
+weather: weather.home  # optional, shown in the header
 ```
 
-Both cards are localized (English/Czech so far) and follow your Home Assistant UI language automatically.
+One card, for a panel view or a dashboard column, that adapts to its width (side by side on a wall tablet, stacked on a phone):
+
+- **Rain radar.** ČHMÚ's open-data radar composite (Czech Hydrometeorological Institute: every 5 minutes, 1 km), the last hour animated over Home Assistant's own map, with a timeline, play/pause, zoom and recenter. `radar_source: rainviewer` switches to RainViewer for places outside Czechia (worldwide, but every 10 minutes and only up to zoom 7 on the free tier).
+- **Live vehicles.** A *Rain | Vehicles* switch zooms the map on your stops and shows every vehicle of their lines nearby (from the *Live vehicles* sensor, see above) as a pill with the line number in PID colours and an arrow for its heading; those bound for your stops are highlighted. They glide between the 15-second updates. Tapping a tracked departure centres the map on that vehicle and follows it.
+- **Departures.** Line badges in PID colours, headsign, stop and platform, second-by-second countdowns that change colour as the vehicle nears, a little road the vehicle travels in the last 20 minutes, delays with the scheduled time struck through, cancellations, air-conditioning, wheelchair and night-line icons.
+- **Service alerts**, shown only when there are some, translated if a conversation agent is configured, each one once even when it applies to several stops.
+
+The map uses Home Assistant's own tile proxy (`/api/map_tiles`), so there is no key to sign up for; on older Home Assistant versions without it the radar stays on a neutral background, and `map_url` can name another `{z}/{x}/{y}` tile server.
+
+| Option | Default | |
+|---|---|---|
+| `title` | localized "Public transport" | header |
+| `device_ids` | every board | the departure boards to show |
+| `rows` | `12` | rows in total (per stop with `sort_by: stop`) |
+| `sort_by` | `time` | `time` or `stop` |
+| `max_minutes_ahead` | `0` | hide departures further away than this (0 = no limit) |
+| `show_alerts` / `show_radar` | `true` | |
+| `weather` | - | weather entity for the header |
+| `radar_source` | `chmi` | `chmi` or `rainviewer` |
+| `radar_product` | `maxz` | `maxz` (maximum reflectivity) or `cappi` (2 km) |
+| `zoom` / `live_zoom` | `9` / `14` | map zoom for rain and for vehicles |
+| `past_minutes` | `60` | minutes of radar to animate |
+| `latitude`, `longitude` | home | map centre |
+| `map_url` | Home Assistant's tiles | another tile server |
+
+The card follows your Home Assistant language: English, Czech and Italian so far. Radar © ČHMÚ, map © OpenStreetMap contributors.
+
+**Upgrading from 1.x:** `pid-departures-card` and `pid-alerts-card` are gone, replaced by this card; their Lovelace resource is removed automatically. Dashboards that used them show "custom element doesn't exist" until those cards are replaced with `custom:pid-transit-card` (`device_ids` and `sort_by` keep their meaning).

@@ -18,7 +18,10 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 URL_BASE = f"/{DOMAIN}_files"
-CARD_FILENAME = "pid-departures-card.js"
+CARD_FILENAME = "pid-transit-card.js"
+# Files earlier versions registered: their resources are removed, or every
+# dashboard would keep asking for a module that is no longer there.
+LEGACY_FILENAMES = ("pid-departures-card.js",)
 
 
 class JSModuleRegistration:
@@ -74,13 +77,19 @@ class JSModuleRegistration:
     async def _async_register_resource(self) -> None:
         """Add or update the card's Lovelace resource, cache-busted by version."""
         url = f"{URL_BASE}/{CARD_FILENAME}"
+        legacy = {f"{URL_BASE}/{name}" for name in LEGACY_FILENAMES}
+        for resource in list(self.lovelace.resources.async_items()):
+            if resource["url"].split("?")[0] in legacy:
+                _LOGGER.info("Removing the resource of the retired card %s", resource["url"])
+                await self.lovelace.resources.async_delete_item(resource["id"])
+
         existing = [
             r for r in self.lovelace.resources.async_items()
             if r["url"].split("?")[0] == url
         ]
 
         if not existing:
-            _LOGGER.info("Registering PID Departures card resource, version %s", self._version)
+            _LOGGER.info("Registering PID Transit card resource, version %s", self._version)
             await self.lovelace.resources.async_create_item(
                 {"res_type": "module", "url": f"{url}?v={self._version}"}
             )
@@ -89,7 +98,7 @@ class JSModuleRegistration:
         resource = existing[0]
         current_version = resource["url"].split("?v=")[-1] if "?v=" in resource["url"] else None
         if current_version != self._version:
-            _LOGGER.info("Updating PID Departures card resource to version %s", self._version)
+            _LOGGER.info("Updating PID Transit card resource to version %s", self._version)
             await self.lovelace.resources.async_update_item(
                 resource["id"],
                 {"res_type": "module", "url": f"{url}?v={self._version}"},
